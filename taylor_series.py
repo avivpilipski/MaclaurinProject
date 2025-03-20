@@ -54,6 +54,21 @@ def get_taylor_series(expr, var, center, order):
     
     return result
 
+def get_general_term(expr, var, center):
+    """Generate the general term and sigma notation for the Taylor series."""
+    x = symbols(var)
+    # Calculate the general form of the nth derivative
+    n = symbols('n')
+    derivative = expr.diff(x, n)
+    
+    # Format the general term
+    if center == 0:
+        var_str = "x"
+    else:
+        var_str = f"(x - {center})"
+    
+    return f"∑(n=0 to ∞) [f^(n)({center})/{n}!]·{var_str}^n"
+
 def main():
     print("Welcome to the Taylor/Maclaurin Series Calculator!")
     print("\nYou can use any mathematical function! Examples:")
@@ -97,6 +112,10 @@ def main():
             print("\nTaylor series expansion:")
             print("f(x) ≈")
             print(series)
+            
+            # Add general form in sigma notation
+            print("\nInfinite series representation:")
+            print("f(x) =", get_general_term(expr, 'x', center))
             
         except Exception as e:
             print(f"\nError: {str(e)}")
