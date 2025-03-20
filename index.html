@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Taylor Series Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.4/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .controls {
+            flex: 1;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .graph-container {
+            flex: 2;
+        }
+        select, input, button {
+            margin: 10px 0;
+            padding: 5px;
+            width: 100%;
+        }
+        .preset-functions {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Taylor Series Visualizer</h1>
+    <div class="container">
+        <div class="controls">
+            <h3>Controls</h3>
+            <select id="presetFunction">
+                <option value="sin(x)">sin(x)</option>
+                <option value="cos(x)">cos(x)</option>
+                <option value="exp(x)">exp(x)</option>
+                <option value="1/(1-x)">1/(1-x)</option>
+            </select>
+            <input type="text" id="customFunction" placeholder="Enter custom function (in terms of x)">
+            <input type="number" id="centerPoint" value="0" step="0.1" placeholder="Center point (a)">
+            <input type="number" id="terms" value="5" min="1" max="10" placeholder="Number of terms">
+            <input type="number" id="xMin" value="-5" step="0.1" placeholder="X min">
+            <input type="number" id="xMax" value="5" step="0.1" placeholder="X max">
+            <button onclick="updateGraph()">Update Graph</button>
+        </div>
+        <div class="graph-container">
+            <canvas id="graph"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+
+        function evaluateFunction(func, x) {
+            try {
+                return math.evaluate(func, { x: x });
+            } catch (e) {
+                return NaN;
+            }
+        }
+
+        function factorial(n) {
+            return n <= 1 ? 1 : n * factorial(n - 1);
+        }
+
+        function getTaylorTerm(func, a, n, x) {
+            const h = 0.0001;
+            let derivative = func;
+            
+            // Calculate nth derivative numerically
+            for (let i = 0; i < n; i++) {
+                derivative = (x) => (evaluateFunction(derivative, x + h) - evaluateFunction(derivative, x)) / h;
+            }
+            
+            const coefficient = derivative(a) / factorial(n);
+            return coefficient * Math.pow(x - a, n);
+        }
+
+        function getTaylorSeries(func, a, n, x) {
+            let sum = 0;
+            for (let i = 0; i <= n; i++) {
+                sum += getTaylorTerm(func, a, i, x);
+            }
+            return sum;
+        }
+
+        function updateGraph() {
+            const func = document.getElementById('customFunction').value || 
+                        document.getElementById('presetFunction').value;
+            const a = parseFloat(document.getElementById('centerPoint').value);
+            const terms = parseInt(document.getElementById('terms').value);
+            const xMin = parseFloat(document.getElementById('xMin').value);
+            const xMax = parseFloat(document.getElementById('xMax').value);
+
+            const points = 200;
+            const dx = (xMax - xMin) / points;
+
+            const originalData = [];
+            const taylorData = [];
+
+            for (let i = 0; i <= points; i++) {
+                const x = xMin + i * dx;
+                originalData.push({ x, y: evaluateFunction(func, x) });
+                taylorData.push({ x, y: getTaylorSeries((x) => evaluateFunction(func, x), a, terms, x) });
+            }
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart('graph', {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Original Function',
+                        data: originalData,
+                        borderColor: 'blue',
+                        fill: false
+                    }, {
+                        label: `Taylor Series (${terms} terms)`,
+                        data: taylorData,
+                        borderColor: 'red',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { type: 'linear' },
+                        y: { type: 'linear' }
+                    }
+                }
+            });
+        }
+
+        // Initial graph
+        document.addEventListener('DOMContentLoaded', updateGraph);
+    </script>
+</body>
+</html>
