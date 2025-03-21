@@ -6,50 +6,163 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        .header {
+            background: #2d2d2d;
+            padding: 0.8rem;
+            border-bottom: 1px solid #3d3d3d;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 500;
         }
         .container {
-            display: flex;
-            gap: 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: calc(100vh - 50px);
+            gap: 0;
         }
         .controls {
-            flex: 1;
+            background: #2d2d2d;
             padding: 20px;
-            background: #f5f5f5;
-            border-radius: 8px;
+            border-right: 1px solid #3d3d3d;
+            overflow-y: auto;
         }
         .graph-container {
-            flex: 2;
+            padding: 0;
+            background: #1e1e1e;
+            position: relative;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
         }
         select, input, button {
-            margin: 10px 0;
-            padding: 5px;
             width: 100%;
+            background: #3d3d3d;
+            color: #ffffff;
+            border: 1px solid #4d4d4d;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
         }
-        .preset-functions {
-            margin-top: 20px;
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #4d4d4d;
+            border-radius: 3px;
+            padding: 0;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #ff3366;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        button {
+            background: #ff3366;
+            border: none;
+            padding: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #ff4d7d;
+        }
+        .help-text {
+            color: #aaa;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        #graph {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .center-point-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #ffffff;
+            border: 2px solid #ff3366;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
+        }
+        .window-range-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <h1>Taylor Series Visualizer</h1>
+    <div class="header">
+        <h1>Taylor Series Visualizer</h1>
+    </div>
     <div class="container">
         <div class="controls">
-            <h3>Controls</h3>
-            <select id="presetFunction">
-                <option value="sin(x)">sin(x)</option>
-                <option value="cos(x)">cos(x)</option>
-                <option value="exp(x)">exp(x)</option>
-                <option value="1/(1-x)">1/(1-x)</option>
-            </select>
-            <input type="text" id="customFunction" placeholder="Enter custom function (in terms of x)">
-            <input type="number" id="centerPoint" value="0" step="0.1" placeholder="Center point (a)">
-            <input type="number" id="terms" value="5" min="1" max="10" placeholder="Number of terms">
-            <input type="number" id="xMin" value="-5" step="0.1" placeholder="X min">
-            <input type="number" id="xMax" value="5" step="0.1" placeholder="X max">
+            <div class="input-group">
+                <label>Common Functions</label>
+                <select id="presetFunction" onchange="handlePresetChange()">
+                    <option value="">Select a function...</option>
+                    <option value="sin(x)">sin(x)</option>
+                    <option value="cos(x)">cos(x)</option>
+                    <option value="exp(x)">eˣ</option>
+                    <option value="1/(1-x)">1/(1-x)</option>
+                    <option value="ln(x)">ln(x)</option>
+                    <option value="tan(x)">tan(x)</option>
+                    <option value="custom">Custom Function...</option>
+                </select>
+            </div>
+
+            <div class="input-group" id="customFunctionGroup" style="display: none;">
+                <label>Custom Function</label>
+                <input type="text" id="customFunction" class="function-input" placeholder="Example: x^2 * sin(x)">
+                <div class="help-text">Use x as variable, supported operations: +, -, *, /, ^, sin, cos, exp, ln</div>
+            </div>
+
+            <div class="input-group">
+                <label>Center Point (a)</label>
+                <input type="number" id="centerPoint" value="0" step="0.1">
+                <div class="help-text">Point around which the series is centered</div>
+            </div>
+
+            <div class="input-group">
+                <label>Number of Terms</label>
+                <input type="range" id="terms" value="5" min="1" max="20" oninput="updateTermsValue(this.value); debounce(updateGraph, 100);">
+                <div class="help-text">Terms: <span id="termsValue">5</span></div>
+            </div>
+
+            <!-- Removing the manual window controls -->
+            <!-- <div class="input-group">
+                <label>View Window</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="number" id="xMin" value="-5" step="0.5" placeholder="X min">
+                    <input type="number" id="xMax" value="5" step="0.5" placeholder="X max">
+                </div>
+            </div> -->
+
             <button onclick="updateGraph()">Update Graph</button>
         </div>
         <div class="graph-container">
@@ -59,6 +172,7 @@
 
     <script>
         let chart;
+        let debounceTimer;
 
         function evaluateFunction(func, x) {
             try {
@@ -69,22 +183,61 @@
         }
 
         function factorial(n) {
+            if (n > 100) return Infinity; // Prevent stack overflow
             return n <= 1 ? 1 : n * factorial(n - 1);
         }
 
+        // Improved Taylor term calculation with caching for better performance
+        const derivativeCache = new Map();
+        
         function getTaylorTerm(func, a, n, x) {
-            const h = 0.0001;
-            let derivative = func;
+            if (n === 0) return evaluateFunction(func, a);
             
-            // Calculate nth derivative numerically
-            for (let i = 0; i < n; i++) {
-                derivative = (x) => (evaluateFunction(derivative, x + h) - evaluateFunction(derivative, x)) / h;
+            // Create a cache key
+            const cacheKey = `${func}-${a}-${n}`;
+            
+            let coefficient;
+            if (derivativeCache.has(cacheKey)) {
+                coefficient = derivativeCache.get(cacheKey);
+            } else {
+                // Handle different function types
+                if (typeof func === 'string') {
+                    // For string-based functions (from dropdown or custom input)
+                    const h = 1e-7;
+                    let derivative = (x) => evaluateFunction(func, x);
+                    
+                    // Calculate nth derivative using central difference method
+                    for (let i = 0; i < n; i++) {
+                        const prevDerivative = derivative;
+                        derivative = (x) => {
+                            return (prevDerivative(x + h) - prevDerivative(x - h)) / (2 * h);
+                        };
+                    }
+                    
+                    coefficient = derivative(a) / factorial(n);
+                } else {
+                    // For function objects (used internally)
+                    const h = 1e-7;
+                    let derivative = func;
+                    
+                    for (let i = 0; i < n; i++) {
+                        const prevDerivative = derivative;
+                        derivative = (x) => {
+                            return (prevDerivative(x + h) - prevDerivative(x - h)) / (2 * h);
+                        };
+                    }
+                    
+                    coefficient = derivative(a) / factorial(n);
+                }
+                
+                // Cache the coefficient
+                derivativeCache.set(cacheKey, coefficient);
             }
             
-            const coefficient = derivative(a) / factorial(n);
             return coefficient * Math.pow(x - a, n);
         }
 
+        // Simplified getTaylorSeries function
         function getTaylorSeries(func, a, n, x) {
             let sum = 0;
             for (let i = 0; i <= n; i++) {
@@ -93,57 +246,400 @@
             return sum;
         }
 
+        function handlePresetChange() {
+            const select = document.getElementById('presetFunction');
+            const customGroup = document.getElementById('customFunctionGroup');
+            if (select.value === 'custom') {
+                customGroup.style.display = 'block';
+            } else {
+                customGroup.style.display = 'none';
+            }
+            updateGraph();
+        }
+
+        function updateTermsValue(value) {
+            document.getElementById('termsValue').textContent = value;
+            // Don't call updateGraph here - it's already called in the oninput event
+        }
+
+        // Add debouncing to prevent performance issues
+        function debounce(func, delay) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(func, delay);
+        }
+
+        // Update the updateGraph function
+        // After creating the chart, add this code to display the current window range
         function updateGraph() {
-            const func = document.getElementById('customFunction').value || 
-                        document.getElementById('presetFunction').value;
+            // Clear derivative cache when changing functions
+            const currentFunc = document.getElementById('presetFunction').value;
+            if (currentFunc !== chart?.currentFunc) {
+                derivativeCache.clear();
+            }
+            
+            const presetSelect = document.getElementById('presetFunction');
+            const customInput = document.getElementById('customFunction');
+            
+            let func;
+            if (presetSelect.value === 'custom') {
+                func = customInput.value || 'x'; // Default to x if empty
+                if (!func.includes('x')) {
+                    alert('Custom function must include variable x');
+                    return;
+                }
+            } else {
+                func = presetSelect.value;
+            }
+
+            if (!func) return;
+
+            // Store current function for cache management
+            chart && (chart.currentFunc = func);
+
             const a = parseFloat(document.getElementById('centerPoint').value);
             const terms = parseInt(document.getElementById('terms').value);
-            const xMin = parseFloat(document.getElementById('xMin').value);
-            const xMax = parseFloat(document.getElementById('xMax').value);
+            
+            // Automatically determine the optimal viewing window
+            let xMin, xMax;
+            
+            // Start with a reasonable window around the center point
+            const initialRange = 10;
+            xMin = a - initialRange/2;
+            xMax = a + initialRange/2;
+            
+            // Adjust window based on function type
+            if (func.includes('sin') || func.includes('cos')) {
+                // For trig functions, show at least 2 periods
+                xMin = a - Math.PI * 2;
+                xMax = a + Math.PI * 2;
+            } else if (func.includes('exp')) {
+                // For exponential, adjust based on center point
+                if (a > 0) {
+                    xMin = Math.max(-2, a - 5);
+                    xMax = a + 3;
+                } else {
+                    xMin = a - 3;
+                    xMax = Math.min(5, a + 5);
+                }
+            } else if (func.includes('ln(x)')) {
+                // For logarithm, ensure we're in the positive domain
+                xMin = Math.max(0.1, a - 5);
+                xMax = Math.max(5, a + 5);
+            } else if (func.includes('1/(1-x)')) {
+                // For 1/(1-x), avoid the singularity at x=1
+                if (a < 1) {
+                    xMin = Math.max(-5, a - 3);
+                    xMax = Math.min(0.9, a + 3);
+                } else {
+                    xMin = Math.max(1.1, a - 3);
+                    xMax = a + 3;
+                }
+            } else if (func.includes('tan(x)')) {
+                // For tan(x), avoid singularities at odd multiples of π/2
+                const period = Math.PI;
+                const nearestSingularity = Math.round((a - Math.PI/2) / period) * period + Math.PI/2;
+                
+                if (Math.abs(a - nearestSingularity) < 0.5) {
+                    // If we're close to a singularity, shift the window
+                    xMin = nearestSingularity + 0.1;
+                    xMax = xMin + period - 0.2;
+                } else {
+                    // Otherwise, show one period avoiding singularities
+                    const lowerSingularity = Math.floor((a - Math.PI/2) / period) * period + Math.PI/2;
+                    const upperSingularity = Math.ceil((a + Math.PI/2) / period) * period - Math.PI/2;
+                    
+                    xMin = lowerSingularity + 0.1;
+                    xMax = upperSingularity - 0.1;
+                }
+            } else {
+                // For other functions, use a dynamic approach
+                // Sample points to find a good window
+                const samplePoints = 20;
+                const sampleRange = 20;
+                const samples = [];
+                
+                for (let i = 0; i <= samplePoints; i++) {
+                    const x = a - sampleRange/2 + i * (sampleRange/samplePoints);
+                    try {
+                        const originalY = evaluateFunction(func, x);
+                        const taylorY = getTaylorSeries(func, a, terms, x);
+                        
+                        if (isFinite(originalY) && isFinite(taylorY)) {
+                            samples.push({ x, originalY, taylorY });
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                if (samples.length > 0) {
+                    // Find min/max values that are finite and reasonable
+                    const validSamples = samples.filter(s => 
+                        Math.abs(s.originalY) < 100 && Math.abs(s.taylorY) < 100);
+                    
+                    if (validSamples.length > 0) {
+                        const minX = Math.min(...validSamples.map(s => s.x));
+                        const maxX = Math.max(...validSamples.map(s => s.x));
+                        
+                        // Add some padding
+                        xMin = minX - (maxX - minX) * 0.1;
+                        xMax = maxX + (maxX - minX) * 0.1;
+                    }
+                }
+            }
+            
+            // Ensure the center point is visible
+            if (a < xMin) xMin = a - 1;
+            if (a > xMax) xMax = a + 1;
+            
+            // Ensure we have a reasonable window size
+            if (xMax - xMin < 2) {
+                const mid = (xMin + xMax) / 2;
+                xMin = mid - 1;
+                xMax = mid + 1;
+            }
 
-            const points = 200;
+            const points = 300; // Increased for smoother curves
             const dx = (xMax - xMin) / points;
 
+            // Rest of the function remains the same
             const originalData = [];
             const taylorData = [];
-
+            const errorAreaData = []; // Define the array that was missing
+            
+            // Calculate data points with error handling
             for (let i = 0; i <= points; i++) {
                 const x = xMin + i * dx;
-                originalData.push({ x, y: evaluateFunction(func, x) });
-                taylorData.push({ x, y: getTaylorSeries((x) => evaluateFunction(func, x), a, terms, x) });
+                try {
+                    const originalY = evaluateFunction(func, x);
+                    
+                    // Use cached derivatives for better performance
+                    const cacheKey = `${func}-${a}-${terms}-${x}`;
+                    let taylorY;
+                    
+                    if (derivativeCache.has(cacheKey)) {
+                        taylorY = derivativeCache.get(cacheKey);
+                    } else {
+                        taylorY = getTaylorSeries(func, a, terms, x);
+                        derivativeCache.set(cacheKey, taylorY);
+                    }
+                    
+                    if (isFinite(originalY) && isFinite(taylorY)) {
+                        originalData.push({ x, y: originalY });
+                        taylorData.push({ x, y: taylorY });
+                    }
+                } catch (e) {
+                    // Skip points that cause errors
+                    continue;
+                }
             }
+
+            // Create error data
+            const errorData = [];
+            for (let i = 0; i < originalData.length; i++) {
+                const x = originalData[i].x;
+                const originalY = originalData[i].y;
+                const taylorY = taylorData[i].y;
+                
+                if (Math.abs(originalY - taylorY) < 10) { // Limit extreme values
+                    errorData.push({ x, y: Math.abs(originalY - taylorY) });
+                }
+            }
+
+            // Remove these lines since the inputs were removed
+            // document.getElementById('xMin').value = xMin;
+            // document.getElementById('xMax').value = xMax;
 
             if (chart) {
                 chart.destroy();
             }
 
+            // Create new chart with updated data
             chart = new Chart('graph', {
                 type: 'line',
                 data: {
                     datasets: [{
                         label: 'Original Function',
                         data: originalData,
-                        borderColor: 'blue',
-                        fill: false
+                        borderColor: '#00ff88',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.3,
+                        order: 2
                     }, {
                         label: `Taylor Series (${terms} terms)`,
                         data: taylorData,
-                        borderColor: 'red',
-                        fill: false
+                        borderColor: '#ff3366',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.3,
+                        order: 1
+                    }, {
+                        label: 'Approximation Error',
+                        data: errorData,
+                        borderColor: 'rgba(255, 204, 0, 0.8)',
+                        backgroundColor: 'rgba(255, 204, 0, 0.3)',
+                        borderWidth: 1,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        yAxisID: 'error',
+                        order: 3
                     }]
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 300 // Faster animations
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        intersect: false
+                    },
                     scales: {
-                        x: { type: 'linear' },
-                        y: { type: 'linear' }
+                        x: {
+                            type: 'linear',
+                            grid: {
+                                color: 'rgba(70, 70, 70, 0.8)',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#fff',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            border: {
+                                display: true,
+                                color: '#666'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            grid: {
+                                color: 'rgba(70, 70, 70, 0.8)',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#fff',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            border: {
+                                display: true,
+                                color: '#666'
+                            }
+                        },
+                        error: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                                color: 'rgba(255, 204, 0, 0.3)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 204, 0, 0.8)',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            border: {
+                                display: true,
+                                color: 'rgba(255, 204, 0, 0.5)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fff',
+                                font: {
+                                    size: 13
+                                },
+                                boxWidth: 15,
+                                padding: 10
+                            },
+                            position: 'top'
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            titleFont: {
+                                size: 13
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            padding: 10,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    if (label === 'Approximation Error') {
+                                        return `Error: ${value.toExponential(4)}`;
+                                    }
+                                    return `${label}: ${value.toFixed(4)}`;
+                                }
+                            }
+                        }
                     }
                 }
             });
+            
+            // Add center point marker
+            addCenterPointMarker(a, func);
+            
+            // Add window range indicator
+            const container = document.querySelector('.graph-container');
+            let rangeIndicator = document.querySelector('.window-range-indicator');
+            
+            if (!rangeIndicator) {
+                rangeIndicator = document.createElement('div');
+                rangeIndicator.className = 'window-range-indicator';
+                container.appendChild(rangeIndicator);
+            }
+            
+            rangeIndicator.textContent = `Window: [${xMin.toFixed(1)}, ${xMax.toFixed(1)}]`;
+        }
+        
+        // Add a visual marker for the center point
+        function addCenterPointMarker(a, func) {
+            // Remove existing marker if any
+            const existingMarker = document.querySelector('.center-point-marker');
+            if (existingMarker) {
+                existingMarker.remove();
+            }
+            
+            // Create new marker
+            const marker = document.createElement('div');
+            marker.className = 'center-point-marker';
+            
+            // Get chart canvas and its position
+            const canvas = document.getElementById('graph');
+            
+            // Get chart scales to convert a to pixel position
+            const xScale = chart.scales.x;
+            const yScale = chart.scales.y;
+            
+            // Calculate position
+            const xPos = xScale.getPixelForValue(a);
+            const yValue = evaluateFunction(func, a);
+            const yPos = yScale.getPixelForValue(yValue);
+            
+            // Set position
+            marker.style.left = `${xPos}px`;
+            marker.style.top = `${yPos}px`;
+            
+            // Add to container
+            document.querySelector('.graph-container').appendChild(marker);
         }
 
-        // Initial graph
-        document.addEventListener('DOMContentLoaded', updateGraph);
+        // Initialize the graph when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('presetFunction').value = 'sin(x)';
+            updateGraph();
+        });
     </script>
 </body>
 </html>
